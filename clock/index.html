@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flip Clock</title>
+<style>
+  /* ---- 테마 토큰 ---- */
+  :root {
+    --card-bg: #1c1c1e;
+    --card-bg-2: #161618;
+    --digit: #f5f3ee;
+    --divider: rgba(0,0,0,0.55);
+    --shadow: rgba(0,0,0,0.45);
+    --label: #8a8a8f;
+    --colon: #9a9aa0;
+    --page-bg: transparent;
+  }
+  [data-theme="light"] {
+    --card-bg: #f4f2ec;
+    --card-bg-2: #e9e6dd;
+    --digit: #1c1c1e;
+    --divider: rgba(0,0,0,0.12);
+    --shadow: rgba(0,0,0,0.18);
+    --label: #6b6b70;
+    --colon: #1c1c1e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--page-bg);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .stage {
+    height: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(8px, 3vh, 22px);
+    padding: 24px;
+  }
+
+  .clock {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 1.6vw, 14px);
+  }
+
+  .group {
+    display: flex;
+    gap: clamp(4px, 1vw, 8px);
+  }
+
+  /* ---- 콜론 ---- */
+  .colon {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: clamp(8px, 2vh, 16px);
+    padding: 0 clamp(2px, 0.6vw, 6px);
+  }
+  .colon span {
+    width: clamp(6px, 1.4vw, 10px);
+    height: clamp(6px, 1.4vw, 10px);
+    border-radius: 50%;
+    background: var(--colon);
+    opacity: 0.85;
+    animation: blink 2s steps(1) infinite;
+  }
+  @keyframes blink {
+    0%, 50% { opacity: 0.85; }
+    50.01%, 100% { opacity: 0.25; }
+  }
+
+  /* ---- 플립 디지트 ---- */
+  .flip {
+    position: relative;
+    width: clamp(46px, 12vw, 110px);
+    height: clamp(72px, 18vw, 168px);
+    font-size: clamp(54px, 14vw, 132px);
+    font-weight: 700;
+    line-height: clamp(72px, 18vw, 168px);
+    border-radius: clamp(6px, 1.4vw, 12px);
+    perspective: 320px;
+    color: var(--digit);
+    text-align: center;
+  }
+
+  .flip .card {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 50%;
+    overflow: hidden;
+    background: var(--card-bg);
+  }
+  .flip .card.top {
+    top: 0;
+    border-radius: clamp(6px, 1.4vw, 12px) clamp(6px, 1.4vw, 12px) 0 0;
+    border-bottom: 1px solid var(--divider);
+    line-height: clamp(72px, 18vw, 168px);
+  }
+  .flip .card.bottom {
+    bottom: 0;
+    border-radius: 0 0 clamp(6px, 1.4vw, 12px) clamp(6px, 1.4vw, 12px);
+    background: var(--card-bg-2);
+    line-height: 0;
+  }
+  .flip .card.bottom span { display: block; transform: translateY(-50%); }
+
+  /* 회전하는 두 장 */
+  .flip .flap {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 50%;
+    overflow: hidden;
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
+  }
+  .flip .flap.top {
+    top: 0;
+    transform-origin: bottom center;
+    transform: rotateX(-90deg);
+    background: var(--card-bg);
+    border-radius: clamp(6px, 1.4vw, 12px) clamp(6px, 1.4vw, 12px) 0 0;
+    border-bottom: 1px solid var(--divider);
+    line-height: clamp(72px, 18vw, 168px);
+  }
+  .flip .flap.bottom {
+    bottom: 0;
+    transform-origin: top center;
+    background: var(--card-bg-2);
+    border-radius: 0 0 clamp(6px, 1.4vw, 12px) clamp(6px, 1.4vw, 12px);
+    line-height: 0;
+    transform: rotateX(90deg);
+  }
+  .flip .flap.bottom span { display: block; transform: translateY(-50%); }
+
+  .flip.flipping .flap.top {
+    animation: flip-top 0.32s ease-in forwards;
+  }
+  .flip.flipping .flap.bottom {
+    animation: flip-bottom 0.34s 0.30s ease-out forwards;
+  }
+  @keyframes flip-top {
+    0% { transform: rotateX(0deg); }
+    100% { transform: rotateX(-90deg); }
+  }
+  @keyframes flip-bottom {
+    0% { transform: rotateX(90deg); }
+    100% { transform: rotateX(0deg); }
+  }
+
+  /* 카드에 살짝 입체 그림자 */
+  .flip::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: clamp(6px, 1.4vw, 12px);
+    box-shadow: 0 clamp(4px,1vw,10px) clamp(12px,3vw,28px) var(--shadow);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  /* ---- 날짜 / 라벨 ---- */
+  .meta {
+    display: flex;
+    gap: clamp(14px, 4vw, 36px);
+    font-size: clamp(13px, 3.6vw, 23px);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--label);
+    font-weight: 600;
+  }
+  .meta.hidden { display: none; }
+
+  .ampm {
+    align-self: flex-start;
+    font-size: clamp(12px, 2.6vw, 18px);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--label);
+    margin-left: clamp(2px, 0.6vw, 6px);
+  }
+  .ampm.hidden { display: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flip.flipping .flap.top,
+    .flip.flipping .flap.bottom { animation: none; }
+    .colon span { animation: none; opacity: 0.7; }
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="clock" id="clock">
+      <div class="group" id="hours"></div>
+      <div class="colon"><span></span><span></span></div>
+      <div class="group" id="minutes"></div>
+      <div class="colon" id="secColon"><span></span><span></span></div>
+      <div class="group" id="seconds"></div>
+      <div class="ampm hidden" id="ampm"></div>
+    </div>
+    <div class="meta" id="meta">
+      <span id="weekday"></span>
+      <span id="date"></span>
+    </div>
+  </div>
+
+<script>
+(function () {
+  // ---------- 옵션 (URL 파라미터) ----------
+  const p = new URLSearchParams(location.search);
+  const opt = {
+    theme:   (p.get("theme")   || "dark").toLowerCase(),          // dark | light
+    seconds: (p.get("seconds") || "true") !== "false",            // true | false
+    format:  (p.get("format")  || "24"),                          // 24 | 12
+    date:    (p.get("date")    || "true") !== "false",            // true | false
+    bg:      p.get("bg") || "",                                   // 예: 191919, ffffff
+  };
+  document.documentElement.setAttribute("data-theme", opt.theme === "light" ? "light" : "dark");
+  if (opt.bg) {
+    const c = /^[0-9a-fA-F]{3,8}$/.test(opt.bg) ? "#" + opt.bg : opt.bg;
+    document.body.style.background = c;
+  }
+  if (!opt.seconds) {
+    document.getElementById("secColon").style.display = "none";
+    document.getElementById("seconds").style.display = "none";
+  }
+  if (!opt.date) document.getElementById("meta").classList.add("hidden");
+
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ---------- 디지트 빌더 ----------
+  function buildDigit(parent) {
+    const el = document.createElement("div");
+    el.className = "flip";
+    el.innerHTML = `
+      <div class="card top"><div class="val">0</div></div>
+      <div class="card bottom"><span class="val">0</span></div>
+      <div class="flap top"><div class="val">0</div></div>
+      <div class="flap bottom"><span class="val">0</span></div>`;
+    parent.appendChild(el);
+    return {
+      el,
+      cardTop: el.querySelector(".card.top .val"),
+      cardBottom: el.querySelector(".card.bottom .val"),
+      flapTop: el.querySelector(".flap.top .val"),
+      flapBottom: el.querySelector(".flap.bottom .val"),
+      current: null,
+      timer: null,
+    };
+  }
+
+  function makeGroup(id) {
+    const parent = document.getElementById(id);
+    return [buildDigit(parent), buildDigit(parent)];
+  }
+
+  const groups = {
+    hours: makeGroup("hours"),
+    minutes: makeGroup("minutes"),
+    seconds: opt.seconds ? makeGroup("seconds") : null,
+  };
+
+  // 모든 면을 같은 값으로 맞춘 정착 상태
+  function setStatic(d, value) {
+    d.cardTop.textContent = value;
+    d.cardBottom.textContent = value;
+    d.flapTop.textContent = value;
+    d.flapBottom.textContent = value;
+    d.current = value;
+  }
+
+  // 진행 중이던 플립을 즉시 마무리해 위/아래 카드를 d.current로 일치시킨다
+  function settle(d) {
+    if (d.timer) { clearTimeout(d.timer); d.timer = null; }
+    d.el.classList.remove("flipping");
+    if (d.current !== null) {
+      d.cardTop.textContent = d.current;
+      d.cardBottom.textContent = d.current;
+    }
+  }
+
+  function flipDigit(d, value) {
+    if (d.current === value) return;
+    if (reduceMotion || d.current === null) { setStatic(d, value); return; }
+
+    settle(d);                         // 이전 플립을 확실히 마무리(불일치 방지)
+    const prev = d.current;
+    d.current = value;
+
+    d.flapTop.textContent = prev;      // 접혀 내려가는 면 = 이전 값
+    d.flapBottom.textContent = value;  // 펼쳐 올라오는 면 = 새 값
+    // card.bottom은 prev 유지(아래 회전판이 덮음) → 타이머에서 새 값으로 교체
+
+    void d.el.offsetWidth;             // 애니메이션 리셋
+    d.el.classList.add("flipping");    // 윗 회전판(prev)이 card.top을 덮으며 회전 시작
+    d.cardTop.textContent = value;     // 가려진 상태에서 새 값으로 바꿔 깜빡임 방지
+
+    // animationend에 의존하지 않고 타이머로 확정(백그라운드 탭에서도 안전)
+    d.timer = setTimeout(function () {
+      d.cardBottom.textContent = value;
+      d.el.classList.remove("flipping");
+      d.timer = null;
+    }, 680);
+  }
+
+  function updateGroup(group, str) {
+    flipDigit(group[0], str[0]);
+    flipDigit(group[1], str[1]);
+  }
+
+  // ---------- 시간 렌더 ----------
+  const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+
+  function render() {
+    const now = new Date();
+    let h = now.getHours();
+    const m = now.getMinutes();
+    const s = now.getSeconds();
+
+    const ampmEl = document.getElementById("ampm");
+    if (opt.format === "12") {
+      const isPM = h >= 12;
+      h = h % 12;
+      if (h === 0) h = 12;
+      ampmEl.classList.remove("hidden");
+      ampmEl.textContent = isPM ? "PM" : "AM";
+    }
+
+    updateGroup(groups.hours, String(h).padStart(2, "0"));
+    updateGroup(groups.minutes, String(m).padStart(2, "0"));
+    if (groups.seconds) updateGroup(groups.seconds, String(s).padStart(2, "0"));
+
+    if (opt.date) {
+      document.getElementById("weekday").textContent = weekdays[now.getDay()] + "요일";
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      document.getElementById("date").textContent = `${now.getFullYear()}.${mm}.${dd}`;
+    }
+  }
+
+  // 1초마다 갱신 (드리프트 보정)
+  render();
+  function tick() {
+    render();
+    const delay = 1000 - (Date.now() % 1000);
+    setTimeout(tick, delay);
+  }
+  setTimeout(tick, 1000 - (Date.now() % 1000));
+})();
+</script>
+</body>
+</html>
