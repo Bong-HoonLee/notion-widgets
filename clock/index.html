@@ -76,29 +76,19 @@
   .quote {
     position: relative;
     font-family: "Gowun Batang", "Nanum Myeongjo", serif;
-    font-size: clamp(15px, 3.6vw, 26px);
+    font-size: clamp(13px, 3.2vw, 24px);
     font-weight: 400;
     line-height: 1.7;
     color: var(--quote);
     text-align: center;
-    max-width: min(88%, 30em);
+    max-width: 96%;
     letter-spacing: 0.01em;
     margin-bottom: clamp(4px, 1.5vh, 14px);
     opacity: 0;
     transition: opacity 0.9s ease;
-    word-break: keep-all;
+    white-space: nowrap;
   }
   .quote.show { opacity: 1; }
-  .quote::before {
-    content: "\201C";
-    position: absolute;
-    left: clamp(-14px, -3vw, -22px);
-    top: clamp(-10px, -2vh, -16px);
-    font-size: clamp(34px, 8vw, 60px);
-    line-height: 1;
-    color: var(--quote-mark);
-    pointer-events: none;
-  }
   .quote.hidden { display: none; }
 
   .group {
@@ -412,6 +402,18 @@
 
   // ---------- 감성 메시지 ----------
   const quoteEl = document.getElementById("quote");
+
+  // 한 줄을 유지하도록 폭에 맞춰 글씨 크기를 자동 조정
+  function fitQuote() {
+    quoteEl.style.fontSize = "";                       // 기본(clamp) 크기로 복원
+    const avail = quoteEl.parentElement.clientWidth - 40;
+    const w = quoteEl.scrollWidth;
+    if (w > avail) {
+      const base = parseFloat(getComputedStyle(quoteEl).fontSize);
+      quoteEl.style.fontSize = Math.max(10, base * avail / w) + "px";
+    }
+  }
+
   if (!opt.quote) {
     quoteEl.classList.add("hidden");
   } else {
@@ -432,16 +434,28 @@
       "흐르는 시간 속에서도, 당신은 당신의 자리를 지키고 있어요.",
     ];
 
+    function setQuote(text) {
+      quoteEl.textContent = text;
+      fitQuote();
+    }
+
     // 시작 메시지는 랜덤, 이후 순서대로 순환
     let qi = Math.floor(Math.random() * messages.length);
-    quoteEl.textContent = messages[qi];
+    setQuote(messages[qi]);
     requestAnimationFrame(() => quoteEl.classList.add("show"));
+
+    // 폰트 로드 완료 후 폭 재계산(웹폰트 적용 시 글자 폭이 달라짐)
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(fitQuote);
+    }
+    // 위젯 크기가 바뀌면 다시 맞춤
+    window.addEventListener("resize", fitQuote);
 
     setInterval(function () {
       quoteEl.classList.remove("show");          // 페이드 아웃
       setTimeout(function () {
         qi = (qi + 1) % messages.length;
-        quoteEl.textContent = messages[qi];
+        setQuote(messages[qi]);
         quoteEl.classList.add("show");           // 페이드 인
       }, 900);
     }, 16000);                                    // 16초마다 전환
