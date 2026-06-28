@@ -25,6 +25,17 @@
     --label: #6b6b70;
     --colon: #1c1c1e;
   }
+  /* 노션 다크모드용: 흰 카드 + 검정 숫자, 날짜·콜론은 흰색, 배경 투명 */
+  [data-theme="night"] {
+    --card-bg: #ffffff;
+    --card-bg-2: #f3f3f5;
+    --digit: #141416;
+    --divider: rgba(0,0,0,0.10);
+    --shadow: rgba(0,0,0,0.35);
+    --label: #ffffff;
+    --colon: #ffffff;
+    --page-bg: transparent;
+  }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -225,7 +236,9 @@
     date:    (p.get("date")    || "true") !== "false",            // true | false
     bg:      p.get("bg") || "",                                   // 예: 191919, ffffff
   };
-  document.documentElement.setAttribute("data-theme", opt.theme === "light" ? "light" : "dark");
+  const validThemes = ["dark", "light", "night"];
+  const theme = validThemes.indexOf(opt.theme) !== -1 ? opt.theme : "dark";
+  document.documentElement.setAttribute("data-theme", theme);
   if (opt.bg) {
     const c = /^[0-9a-fA-F]{3,8}$/.test(opt.bg) ? "#" + opt.bg : opt.bg;
     document.body.style.background = c;
