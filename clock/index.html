@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Flip Clock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Nanum+Myeongjo:wght@400;700&display=swap" rel="stylesheet">
 <style>
   /* ---- 테마 토큰 ---- */
   :root {
@@ -14,6 +17,8 @@
     --shadow: rgba(0,0,0,0.45);
     --label: #8a8a8f;
     --colon: #9a9aa0;
+    --quote: rgba(245,243,238,0.88);
+    --quote-mark: rgba(245,243,238,0.25);
     --page-bg: transparent;
   }
   [data-theme="light"] {
@@ -24,8 +29,10 @@
     --shadow: rgba(0,0,0,0.18);
     --label: #6b6b70;
     --colon: #1c1c1e;
+    --quote: rgba(28,28,30,0.82);
+    --quote-mark: rgba(28,28,30,0.22);
   }
-  /* 노션 다크모드용: 흰 카드 + 검정 숫자, 날짜·콜론은 흰색, 배경 투명 */
+  /* 노션 다크모드용: 흰 카드 + 검정 숫자, 날짜·콜론은 흰색, 배경 #191919 */
   [data-theme="night"] {
     --card-bg: #ffffff;
     --card-bg-2: #f3f3f5;
@@ -34,7 +41,9 @@
     --shadow: rgba(0,0,0,0.35);
     --label: #ffffff;
     --colon: #ffffff;
-    --page-bg: transparent;
+    --quote: rgba(255,255,255,0.9);
+    --quote-mark: rgba(255,255,255,0.28);
+    --page-bg: #191919;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -62,6 +71,35 @@
     align-items: center;
     gap: clamp(6px, 1.6vw, 14px);
   }
+
+  /* ---- 감성 메시지 ---- */
+  .quote {
+    position: relative;
+    font-family: "Gowun Batang", "Nanum Myeongjo", serif;
+    font-size: clamp(15px, 3.6vw, 26px);
+    font-weight: 400;
+    line-height: 1.7;
+    color: var(--quote);
+    text-align: center;
+    max-width: min(88%, 30em);
+    letter-spacing: 0.01em;
+    margin-bottom: clamp(4px, 1.5vh, 14px);
+    opacity: 0;
+    transition: opacity 0.9s ease;
+    word-break: keep-all;
+  }
+  .quote.show { opacity: 1; }
+  .quote::before {
+    content: "\201C";
+    position: absolute;
+    left: clamp(-14px, -3vw, -22px);
+    top: clamp(-10px, -2vh, -16px);
+    font-size: clamp(34px, 8vw, 60px);
+    line-height: 1;
+    color: var(--quote-mark);
+    pointer-events: none;
+  }
+  .quote.hidden { display: none; }
 
   .group {
     display: flex;
@@ -211,6 +249,7 @@
 </head>
 <body>
   <div class="stage">
+    <div class="quote" id="quote"></div>
     <div class="clock" id="clock">
       <div class="group" id="hours"></div>
       <div class="colon"><span></span><span></span></div>
@@ -234,6 +273,7 @@
     seconds: (p.get("seconds") || "true") !== "false",            // true | false
     format:  (p.get("format")  || "24"),                          // 24 | 12
     date:    (p.get("date")    || "true") !== "false",            // true | false
+    quote:   (p.get("quote")   || "true") !== "false",            // true | false
     bg:      p.get("bg") || "",                                   // 예: 191919, ffffff
   };
   const validThemes = ["dark", "light", "night"];
@@ -369,6 +409,43 @@
     setTimeout(tick, delay);
   }
   setTimeout(tick, 1000 - (Date.now() % 1000));
+
+  // ---------- 감성 메시지 ----------
+  const quoteEl = document.getElementById("quote");
+  if (!opt.quote) {
+    quoteEl.classList.add("hidden");
+  } else {
+    const messages = [
+      "지금 이 순간도, 충분히 잘 흘러가고 있어요.",
+      "서두르지 않아도 괜찮아요. 당신의 속도로 가면 돼요.",
+      "오늘 하루도, 여기까지 온 당신이 대단해요.",
+      "흘러간 시간은 모두 당신을 만든 조각들이에요.",
+      "조급해 말아요. 모든 건 제때에 찾아와요.",
+      "잠시 숨을 고르고, 다시 시작해도 늦지 않아요.",
+      "당신은 생각보다 훨씬 더 잘 해내고 있어요.",
+      "지나간 1초도, 다가올 1초도 모두 당신의 것이에요.",
+      "천천히 가도 돼요. 멈추지만 않으면 돼요.",
+      "지금 여기, 당신이 있는 이 시간이 가장 소중해요.",
+      "어제보다 한 걸음. 그거면 충분해요.",
+      "시간은 당신 편이에요. 천천히, 그리고 꾸준히.",
+      "오늘의 당신에게, 수고했다고 말해주고 싶어요.",
+      "흐르는 시간 속에서도, 당신은 당신의 자리를 지키고 있어요.",
+    ];
+
+    // 시작 메시지는 랜덤, 이후 순서대로 순환
+    let qi = Math.floor(Math.random() * messages.length);
+    quoteEl.textContent = messages[qi];
+    requestAnimationFrame(() => quoteEl.classList.add("show"));
+
+    setInterval(function () {
+      quoteEl.classList.remove("show");          // 페이드 아웃
+      setTimeout(function () {
+        qi = (qi + 1) % messages.length;
+        quoteEl.textContent = messages[qi];
+        quoteEl.classList.add("show");           // 페이드 인
+      }, 900);
+    }, 16000);                                    // 16초마다 전환
+  }
 })();
 </script>
 </body>
