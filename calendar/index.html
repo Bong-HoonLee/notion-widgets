@@ -127,6 +127,25 @@
   .cal-head .titlewrap{display:flex;align-items:baseline;gap:10px;}
   .cal-head h3{margin:0;font-family:"Fraunces",serif;font-weight:500;font-size:18px;}
   .cal-head .ym{font:500 13px/1 "Pretendard";color:var(--muted);letter-spacing:.02em;}
+  .sync{display:inline-flex;align-items:center;gap:5px;font:500 11px/1 "Pretendard";color:var(--muted);margin-left:4px;}
+  .sync .dot{width:7px;height:7px;border-radius:50%;background:#8A8C84;display:inline-block;}
+  .logout{font:500 10.5px/1 "Pretendard";color:var(--muted);background:none;border:1px solid var(--hair-strong);border-radius:6px;padding:3px 7px;cursor:pointer;margin-left:2px;}
+  .logout:hover{color:var(--ink);border-color:var(--accent);}
+  .login-overlay{position:fixed;inset:0;background:#191919;display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .login-card{width:100%;max-width:320px;display:flex;flex-direction:column;gap:10px;}
+  .login-title{font-family:"Fraunces",serif;font-weight:500;font-size:23px;letter-spacing:-.01em;}
+  .login-sub{font:500 12.5px/1.4 "Pretendard";color:var(--muted);margin-bottom:6px;}
+  .login-card input{font:450 14px/1 "Pretendard";padding:11px 13px;border-radius:9px;border:1px solid var(--hair-strong);background:var(--surface-2);color:var(--ink);outline:none;transition:border-color .15s,box-shadow .15s;}
+  .login-card input::placeholder{color:#6B7065;}
+  .login-card input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .login-err{font:500 12px/1.4 "Pretendard";color:var(--warn);min-height:14px;}
+  .login-btn{font:600 14px/1 "Pretendard";padding:12px;border-radius:9px;border:none;background:var(--accent);color:#191919;cursor:pointer;transition:background .15s;}
+  .login-btn:hover{background:var(--mint);}
+  .login-btn:disabled{opacity:.6;cursor:default;}
+  .login-switch{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;font:500 12.5px/1 "Pretendard";color:var(--muted);}
+  .login-link{font:600 12.5px/1 "Pretendard";color:var(--accent);background:none;border:none;cursor:pointer;padding:2px;}
+  .login-link:hover{color:var(--mint);}
+  .login-ok{font:500 12px/1.4 "Pretendard";color:var(--accent);min-height:14px;}
   .nav{display:flex;gap:6px;align-items:center;}
   .iconbtn{width:30px;height:30px;border-radius:8px;border:1px solid var(--hair-strong);background:var(--surface-2);color:var(--ink);cursor:pointer;font-size:15px;display:grid;place-items:center;transition:background .15s,border-color .15s;}
   .iconbtn:hover{background:var(--accent-soft2);border-color:var(--accent);}
@@ -186,6 +205,20 @@
 </style>
 </head>
 <body>
+<div id="login" class="login-overlay" style="display:none">
+  <div class="login-card">
+    <div class="login-title" id="loginTitle">로그인</div>
+    <div class="login-sub" id="loginSub">계정으로 로그인하면 어느 기기에서든 내 기록이 보여요</div>
+    <input type="email" id="loginEmail" placeholder="이메일" autocomplete="username">
+    <input type="password" id="loginPw" placeholder="비밀번호 (6자 이상)" autocomplete="current-password">
+    <div class="login-err" id="loginErr"></div>
+    <button class="login-btn" id="loginBtn">로그인</button>
+    <div class="login-switch">
+      <span id="switchText">계정이 없나요?</span>
+      <button class="login-link" id="switchBtn">회원가입</button>
+    </div>
+  </div>
+</div>
 <div class="wrap">
   <!-- top row: todo + routine -->
   <div class="panels">
@@ -249,6 +282,7 @@
       <div class="titlewrap">
         <h3>달력</h3>
         <span class="ym" id="ym"></span>
+        <span class="sync" id="sync"></span>
       </div>
       <div class="nav">
         <button class="today-btn" id="todayBtn">오늘</button>
@@ -267,14 +301,140 @@
 </div>
 
 <script>
-/* ===== storage ===== */
-const KEY='planner-data-v2';
-let memFallback=false;
-function load(){ try{ const r=localStorage.getItem(KEY); return r?JSON.parse(r):null; }catch(e){ memFallback=true; return null; } }
-function save(){ try{ localStorage.setItem(KEY,JSON.stringify(state)); }catch(e){ memFallback=true; } }
+/* ===== Supabase config =====
+   1) SUPABASE_URL      : 프로젝트 URL   (예: https://abcd1234.supabase.co)
+   2) SUPABASE_ANON_KEY : anon public 키
+   데이터는 로그인한 계정별로 자동 분리돼요. (계정마다 자기 것만 보임)
+   설정 안 하면 자동으로 '이 기기에만 저장' 모드로 동작해요. */
+const SUPABASE_URL      = 'https://gcbpnrcawsfvrmikbvba.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_2GXCPUVT_Kz57Qg5J-f-Sg_16UO3Yc6';
+
+const remoteEnabled = SUPABASE_URL && !SUPABASE_URL.includes('YOUR-PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR-ANON');
+
+/* ===== local cache ===== */
+const LKEY='planner-data-v2';
+function loadLocal(){ try{ const r=localStorage.getItem(LKEY); return r?JSON.parse(r):null; }catch(e){ return null; } }
+function saveLocal(){ try{ localStorage.setItem(LKEY,JSON.stringify(state)); }catch(e){} }
+
+/* ===== auth (email + password) ===== */
+const SKEY='planner-session';
+let session=null;          // {access_token, refresh_token, expires_at, email, user_id}
+function loadSession(){ try{ const r=localStorage.getItem(SKEY); return r?JSON.parse(r):null; }catch(e){ return null; } }
+function saveSession(s){ session=s; try{ s?localStorage.setItem(SKEY,JSON.stringify(s)):localStorage.removeItem(SKEY); }catch(e){} }
+function setSessionFrom(j,email){
+  saveSession({
+    access_token:j.access_token, refresh_token:j.refresh_token,
+    expires_at:Date.now()+(j.expires_in||3600)*1000,
+    email:(j.user&&j.user.email)||email,
+    user_id:(j.user&&j.user.id)||null
+  });
+}
+
+async function signIn(email,password){
+  const res=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{
+    method:'POST', headers:{apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({email,password})
+  });
+  const j=await res.json();
+  if(!res.ok) throw new Error(j.error_description||j.msg||j.error||'로그인 실패');
+  setSessionFrom(j,email);
+}
+async function signUp(email,password){
+  const res=await fetch(`${SUPABASE_URL}/auth/v1/signup`,{
+    method:'POST', headers:{apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({email,password})
+  });
+  const j=await res.json();
+  if(!res.ok) throw new Error(j.error_description||j.msg||j.error||'가입 실패');
+  if(j.access_token){ setSessionFrom(j,email); return true; }  // 바로 로그인됨
+  return false;                                                // 이메일 인증 필요
+}
+async function refreshSession(){
+  if(!session||!session.refresh_token) throw new Error('no session');
+  const res=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{
+    method:'POST', headers:{apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({refresh_token:session.refresh_token})
+  });
+  const j=await res.json();
+  if(!res.ok) throw new Error('refresh failed');
+  saveSession({access_token:j.access_token,refresh_token:j.refresh_token,expires_at:Date.now()+(j.expires_in||3600)*1000, email:session.email, user_id:session.user_id||(j.user&&j.user.id)});
+}
+async function ensureToken(){
+  if(!session) throw new Error('로그인이 필요해요');
+  if(Date.now() > session.expires_at - 60000) await refreshSession();
+  return session.access_token;
+}
+function signOut(){ saveSession(null); showLogin(); setStatus('local'); }
+
+/* ===== remote (per-user, keyed by user_id; RLS returns only your row) ===== */
+async function fetchRemote(){
+  const token=await ensureToken();
+  const res=await fetch(`${SUPABASE_URL}/rest/v1/planner?select=data`,{headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+token}});
+  if(!res.ok) throw new Error('GET '+res.status);
+  const rows=await res.json();
+  return rows[0]?rows[0].data:null;
+}
+async function pushRemote(){
+  const token=await ensureToken();
+  const body=[{user_id:session.user_id,data:state,updated_at:new Date().toISOString()}];
+  const res=await fetch(`${SUPABASE_URL}/rest/v1/planner?on_conflict=user_id`,{
+    method:'POST',
+    headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+token,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},
+    body:JSON.stringify(body)
+  });
+  if(!res.ok) throw new Error('POST '+res.status);
+}
+
+/* ===== save = local now + debounced remote push ===== */
+let pushTimer=null;
+function save(){
+  saveLocal();
+  if(!remoteEnabled || !session){ setStatus(remoteEnabled?'offline':'local'); return; }
+  setStatus('saving');
+  clearTimeout(pushTimer);
+  pushTimer=setTimeout(async()=>{ try{ await pushRemote(); setStatus('synced'); }catch(e){ setStatus('offline'); } },600);
+}
+
+/* ===== sync status pill ===== */
+function setStatus(s){
+  const el=document.getElementById('sync'); if(!el) return;
+  const who=session&&session.email?' · '+session.email.split('@')[0]:'';
+  const map={
+    loading:['#8A8C84','불러오는 중…'],
+    saving:['#C8A24A','저장 중…'],
+    synced:['#56C07C','동기화됨'+who],
+    offline:['#C97B5E','오프라인 · 이 기기에 저장'],
+    local:['#8A8C84','이 기기에 저장']
+  };
+  const [c,t]=map[s]||map.local;
+  el.innerHTML=`<span class="dot" style="background:${c}"></span>${t}`+
+    (session?` <button class="logout" onclick="signOut()">로그아웃</button>`:'');
+}
+
+/* ===== login overlay ===== */
+function showLogin(){ const o=document.getElementById('login'); if(o) o.style.display='flex'; }
+function hideLogin(){ const o=document.getElementById('login'); if(o) o.style.display='none'; }
+
+/* ===== initial sync ===== */
+async function pullAndRender(){
+  setStatus('loading');
+  try{
+    const remote=await fetchRemote();
+    if(remote){ state=remote; saveLocal(); render(); }
+    else { await pushRemote(); }
+    setStatus('synced');
+  }catch(e){ setStatus('offline'); }
+}
+async function initSync(){
+  if(!remoteEnabled){ setStatus('local'); hideLogin(); return; }
+  session=loadSession();
+  if(!session){ showLogin(); return; }
+  try{ await ensureToken(); hideLogin(); await pullAndRender(); }
+  catch(e){ saveSession(null); showLogin(); }
+}
 
 /* ===== state ===== */
-let state = load() || { tasks:[], routines:[], routineDone:{} };
+let state = loadLocal() || { tasks:[], routines:[], routineDone:{} };
 let view = new Date();
 let selected = new Date();
 
@@ -446,7 +606,60 @@ document.getElementById('rtSubmit').onclick=()=>{
   save(); render();
 };
 
+/* ===== login / signup form ===== */
+let authMode='login'; // 'login' | 'signup'
+function setAuthMode(m){
+  authMode=m;
+  const t=document.getElementById('loginTitle'), s=document.getElementById('loginSub'),
+        b=document.getElementById('loginBtn'), sw=document.getElementById('switchText'),
+        sb=document.getElementById('switchBtn'), pw=document.getElementById('loginPw'),
+        err=document.getElementById('loginErr');
+  err.textContent='';
+  if(m==='signup'){
+    t.textContent='회원가입'; s.textContent='이메일로 계정을 만들면 내 데이터가 따로 저장돼요';
+    b.textContent='가입하기'; sw.textContent='이미 계정이 있나요?'; sb.textContent='로그인';
+    pw.setAttribute('autocomplete','new-password');
+  }else{
+    t.textContent='로그인'; s.textContent='계정으로 로그인하면 어느 기기에서든 내 기록이 보여요';
+    b.textContent='로그인'; sw.textContent='계정이 없나요?'; sb.textContent='회원가입';
+    pw.setAttribute('autocomplete','current-password');
+  }
+}
+document.getElementById('switchBtn').onclick=()=>setAuthMode(authMode==='login'?'signup':'login');
+
+async function doAuth(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pw=document.getElementById('loginPw').value;
+  const err=document.getElementById('loginErr'); err.style.color=''; err.textContent='';
+  const btn=document.getElementById('loginBtn');
+  if(!email||!pw){ err.textContent='이메일과 비밀번호를 입력해 주세요'; return; }
+  btn.disabled=true; const orig=btn.textContent; btn.textContent='처리 중…';
+  try{
+    if(authMode==='signup'){
+      const loggedIn=await signUp(email,pw);
+      if(!loggedIn){
+        err.style.color='var(--accent)';
+        err.textContent='가입 완료! 메일로 온 인증 링크를 누른 뒤 로그인해 주세요.';
+        setAuthMode('login'); btn.disabled=false; btn.textContent='로그인'; return;
+      }
+    }else{
+      await signIn(email,pw);
+    }
+    hideLogin(); await pullAndRender();
+  }catch(e){
+    const msg=(''+(e.message||e));
+    err.textContent = msg.includes('Invalid login') ? '이메일 또는 비밀번호가 맞지 않아요'
+      : msg.includes('already registered') ? '이미 가입된 이메일이에요. 로그인해 주세요.'
+      : msg.includes('at least') || msg.includes('Password') ? '비밀번호는 6자 이상이어야 해요'
+      : msg;
+  }finally{ btn.disabled=false; btn.textContent=(authMode==='signup'?'가입하기':'로그인'); }
+}
+document.getElementById('loginBtn').onclick=doAuth;
+document.getElementById('loginPw').addEventListener('keydown',e=>{ if(e.key==='Enter') doAuth(); });
+document.getElementById('loginEmail').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('loginPw').focus(); });
+
 render();
+initSync();
 </script>
 </body>
 </html>
